@@ -1,0 +1,44 @@
+{
+  "name": "@eurusik/memoized",
+  "version": "1.0.0",
+  "description": "🧠 Smart memoization decorator for TypeScript - A lightweight and flexible TypeScript decorator that memoizes method or getter results using deep argument comparison",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "prepublishOnly": "npm run build && npm test",
+    "lint": "eslint src/**/*.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eurusik/memoized.git"
+  },
+  "keywords": [
+    "typescript",
+    "memoize",
+    "memoization",
+    "decorator",
+    "cache",
+    "performance"
+  ],
+  "author": "eurusik",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/eurusik/memoized/issues"
+  },
+  "homepage": "https://github.com/eurusik/memoized#readme",
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.3.1",
+    "typescript": "^5.8.3"
+  }
+}

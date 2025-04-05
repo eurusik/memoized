@@ -24,10 +24,20 @@ export function deepEqual(a: unknown, b: unknown, depth: number = 100): boolean 
     // Prevent stack overflow with circular references or very deep objects
     if (depth <= 0) return false;
     
-    // Handle simple equality and null/undefined
+    // Fast path for strict equality (handles primitives efficiently)
     if (a === b) return true;
+    
+    // Handle null/undefined cases
     if (a == null || b == null) return false;
-    if (typeof a !== typeof b) return false;
+    
+    // Fast path for different types
+    const typeA = typeof a;
+    const typeB = typeof b;
+    if (typeA !== typeB) return false;
+    
+    // Fast path for primitives - already checked with === above
+    // This avoids unnecessary deep comparison for primitives
+    if (typeA !== 'object' && typeA !== 'function') return false;
 
     // Handle special types
     if (a instanceof Date && b instanceof Date) {
@@ -38,10 +48,25 @@ export function deepEqual(a: unknown, b: unknown, depth: number = 100): boolean 
         return a.toString() === b.toString();
     }
 
-    if (a && b && typeof a === 'object') {
+    // At this point, we know both a and b are objects (or null, which was handled above)
+    if (a && b) {
         // Handle arrays
         if (Array.isArray(a) && Array.isArray(b)) {
             if (a.length !== b.length) return false;
+            
+            // Fast path for primitive arrays - use direct comparison first
+            const allPrimitives = a.every(item => 
+                item === null || 
+                item === undefined || 
+                (typeof item !== 'object' && typeof item !== 'function')
+            );
+            
+            if (allPrimitives) {
+                // For primitive arrays, we can do a faster comparison
+                return a.every((val, i) => val === b[i]);
+            }
+            
+            // For arrays with objects, do deep comparison
             return a.every((val, i) => deepEqual(val, b[i], depth - 1));
         }
 

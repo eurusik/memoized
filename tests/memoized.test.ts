@@ -20,6 +20,29 @@ describe('deepEqual function', () => {
     expect(deepEqual([1, 2, 3], [1, 2])).toBe(false);
     expect(deepEqual([], [])).toBe(true);
   });
+  
+  test('primitive array optimization', () => {
+    // These should use the fast path for primitive arrays
+    expect(deepEqual([1, 2, 3, 4, 5], [1, 2, 3, 4, 5])).toBe(true);
+    expect(deepEqual(['a', 'b', 'c'], ['a', 'b', 'c'])).toBe(true);
+    expect(deepEqual([true, false, true], [true, false, true])).toBe(true);
+    expect(deepEqual([null, undefined], [null, undefined])).toBe(true);
+    
+    // These should fail fast
+    expect(deepEqual([1, 2, 3], [1, 2, 4])).toBe(false);
+    expect(deepEqual(['a', 'b'], ['a', 'c'])).toBe(false);
+  });
+  
+  test('mixed array comparison', () => {
+    // These should use the deep comparison path
+    expect(deepEqual([1, {a: 2}], [1, {a: 2}])).toBe(true);
+    expect(deepEqual([{a: 1}, {b: 2}], [{a: 1}, {b: 2}])).toBe(true);
+    expect(deepEqual([1, [2, 3]], [1, [2, 3]])).toBe(true);
+    
+    // These should fail correctly
+    expect(deepEqual([1, {a: 2}], [1, {a: 3}])).toBe(false);
+    expect(deepEqual([{a: 1}, {b: 2}], [{a: 2}, {b: 2}])).toBe(false);
+  });
 
   test('object comparison', () => {
     expect(deepEqual({ a: 1, b: 2 }, { a: 1, b: 2 })).toBe(true);

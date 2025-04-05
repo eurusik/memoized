@@ -6,9 +6,10 @@ A lightweight and flexible TypeScript decorator that memoizes method or getter r
 
 - 🧩 **Versatile**: Supports both methods and getters
 - 🔍 **Smart**: Uses deep comparison to detect identical arguments
-- ⚡️ **Fast**: Skips redundant calculations to improve performance
+- ⚡️ **Fast**: Optimized comparison with fast paths for primitives and arrays
 - 🧼 **Clean**: Includes a built-in way to clear memoized cache
 - ⚙️ **Compatible**: Works with both legacy and Stage 3 decorator syntax
+- 🏃 **Performant**: Avoids unnecessary deep comparisons for primitive values
 
 Perfect for caching pure and expensive computations without relying on external libraries.
 
@@ -115,7 +116,10 @@ Utility function for deep comparison of values.
 The `@memoized` decorator works by:
 
 1. Storing the arguments and result of the first call
-2. On subsequent calls, comparing new arguments with stored ones using deep equality
+2. On subsequent calls, comparing new arguments with stored ones using optimized equality checks:
+   - Fast path for primitive values using `===`
+   - Optimized comparison for arrays of primitives
+   - Deep comparison only when necessary for objects and complex arrays
 3. If arguments match, returning the cached result instead of recomputing
 4. For getters, replacing the getter with the computed value after first access
 

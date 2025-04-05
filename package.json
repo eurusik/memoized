@@ -1,6 +1,9 @@
 {
   "name": "@eurusik/memoized",
   "version": "1.0.0",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "🧠 Smart memoization decorator for TypeScript - A lightweight and flexible TypeScript decorator that memoizes method or getter results using deep argument comparison",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

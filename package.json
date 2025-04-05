@@ -1,6 +1,6 @@
 {
   "name": "@eurusik/memoized",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "publishConfig": {
     "access": "public"
   },
@@ -29,7 +29,10 @@
     "memoization",
     "decorator",
     "cache",
-    "performance"
+    "performance",
+    "ttl",
+    "time-to-live",
+    "expiration"
   ],
   "author": "eurusik",
   "license": "MIT",

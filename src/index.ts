@@ -123,25 +123,44 @@ export function deepEqual(a: unknown, b: unknown, depth: number = 100): boolean 
 }
 
 /**
+ * Options for memoization
+ */
+export interface MemoizationOptions {
+    /**
+     * Time-to-live in milliseconds for cached values
+     * If specified, cached values will expire after this time
+     */
+    ttl?: number;
+}
+
+/**
  * Creates a memoized version of a method
  * 
  * @param originalMethod - The original method to memoize
  * @param key - The property key of the method
+ * @param options - Optional memoization options
  * @param instance - Optional instance to attach clearMemo function to
  * @returns A memoized version of the original method with a clearMemo function
  */
 export function createMemoizedMethod(
     originalMethod: (...args: unknown[]) => unknown,
     key: string,
+    options: MemoizationOptions = {},
     instance?: WithMemoizedMethods,
 ): ((...args: unknown[]) => unknown) & { clearMemo: () => void } {
     let previousArgs: readonly unknown[] = [];
     let calledOnce = false;
     let cachedResult: unknown;
+    let cachedTimestamp: number | null = null;
 
     const memoizedFn = function (this: any, ...args: unknown[]) {
+        const now = Date.now();
+        const ttlExpired = options.ttl && cachedTimestamp && (now - cachedTimestamp > options.ttl);
+        
+        // Check if cache is valid (arguments match and not expired)
         const isSame =
             calledOnce &&
+            !ttlExpired &&
             previousArgs.length === args.length &&
             args.every((arg, i) => deepEqual(arg, previousArgs[i]));
 
@@ -151,6 +170,7 @@ export function createMemoizedMethod(
 
         previousArgs = [...args]; // Create a copy to prevent mutation
         cachedResult = originalMethod.apply(this, args);
+        cachedTimestamp = Date.now();
         calledOnce = true;
 
         return cachedResult;
@@ -159,6 +179,7 @@ export function createMemoizedMethod(
     memoizedFn.clearMemo = () => {
         previousArgs = [];
         cachedResult = undefined;
+        cachedTimestamp = null;
         calledOnce = false;
     };
 
@@ -184,6 +205,42 @@ export function clearAllMemoized(instance: WithMemoizedMethods): void {
   }
 }
 
+/**
+ * Memoization decorator for class methods and getters
+ * Supports both legacy and stage 3 decorators
+ * 
+ * @example
+ * // Legacy decorator
+ * class Example {
+ *   @memoized
+ *   expensiveMethod(arg1: string, arg2: number) {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * 
+ *   @memoized
+ *   get expensiveComputation() {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * }
+ * 
+ * @example
+ * // Stage 3 decorator
+ * class Example {
+ *   @memoized
+ *   expensiveMethod(arg1: string, arg2: number) {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * 
+ *   @memoized
+ *   get expensiveComputation() {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * }
+ */
 /**
  * Memoization decorator for class methods and getters
  * Supports both legacy and stage 3 decorators
@@ -259,7 +316,7 @@ export function memoized(
         }
 
         if (context.kind === 'method') {
-            return createMemoizedMethod(target as (...args: unknown[]) => unknown, context.name.toString());
+            return createMemoizedMethod(target as (...args: unknown[]) => unknown, context.name.toString(), {});
         }
 
         throw new Error('memoized can only be used on methods or getters');
@@ -294,7 +351,7 @@ export function memoized(
         configurable: true,
         enumerable: true,
         get(): unknown {
-            const fn = createMemoizedMethod(value as (...args: unknown[]) => unknown, propertyKey, this);
+            const fn = createMemoizedMethod(value as (...args: unknown[]) => unknown, propertyKey, {}, this);
             Object.defineProperty(this, propertyKey, {
                 configurable: true,
                 value: fn,
@@ -302,5 +359,111 @@ export function memoized(
 
             return fn;
         },
+    };
+}
+
+/**
+ * Time-based memoization decorator for class methods and getters
+ * Automatically expires cached values after the specified time-to-live (TTL)
+ * Supports both legacy and stage 3 decorators
+ * 
+ * @param ttl - Time-to-live in milliseconds for cached values
+ * 
+ * @example
+ * // Legacy decorator
+ * class Example {
+ *   @memoizedTTL(5000)
+ *   expensiveMethod(arg1: string, arg2: number) {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * }
+ * 
+ * @example
+ * // Stage 3 decorator
+ * class Example {
+ *   @memoizedTTL(5000)
+ *   expensiveMethod(arg1: string, arg2: number) {
+ *     // expensive calculation
+ *     return result;
+ *   }
+ * }
+ */
+export function memoizedTTL<T>(ttl: number): any {
+    return function(target: any, contextOrKey: any, descriptorOrUndefined?: any): any {
+        // Stage 3 decorator format
+        if (contextOrKey && typeof contextOrKey === 'object' && 'kind' in contextOrKey) {
+            const context = contextOrKey as ClassGetterDecoratorContext | ClassMethodDecoratorContext;
+            
+            if (context.kind === 'getter') {
+                return function memoizedGetter(this: object): unknown {
+                    const value = (target as Function).call(this);
+
+                    Object.defineProperty(this, context.name, {
+                        enumerable: true,
+                        configurable: true,
+                        value,
+                    });
+
+                    return value;
+                };
+            }
+
+            if (context.kind === 'method') {
+                return createMemoizedMethod(
+                    target as (...args: unknown[]) => unknown, 
+                    context.name.toString(),
+                    { ttl }
+                );
+            }
+
+            throw new Error('memoizedTTL can only be used on methods or getters');
+        }
+        
+        // Legacy decorator format
+        const propertyKey = contextOrKey as string;
+        const descriptor = descriptorOrUndefined as TypedPropertyDescriptor<T>;
+        const { value, get } = descriptor;
+
+        if (get) {
+            return {
+                configurable: true,
+                enumerable: true,
+                get: function memoizedGetter(): T {
+                    const result = get.call(this);
+
+                    Object.defineProperty(this, propertyKey, {
+                        configurable: true,
+                        enumerable: true,
+                        value: result,
+                    });
+
+                    return result;
+                },
+            };
+        }
+
+        if (typeof value !== 'function') {
+            throw new Error('memoizedTTL can only be used on methods or getters');
+        }
+
+        return {
+            configurable: true,
+            enumerable: true,
+            get(): T {
+                const fn = createMemoizedMethod(
+                    value as (...args: unknown[]) => unknown, 
+                    propertyKey, 
+                    { ttl }, 
+                    this as WithMemoizedMethods
+                );
+                Object.defineProperty(this, propertyKey, {
+                    configurable: true,
+                    value: fn,
+                });
+
+                return fn as unknown as T;
+            },
+        };
     };
 }

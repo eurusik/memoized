@@ -1,4 +1,4 @@
-import { memoized, deepEqual, clearAllMemoized, WithMemoizedMethods } from '../src';
+import { memoized, memoizedTTL, deepEqual, clearAllMemoized, WithMemoizedMethods } from '../src';
 
 describe('deepEqual function', () => {
   test('primitives comparison', () => {
@@ -215,5 +215,88 @@ describe('memoized decorator', () => {
     // Modified object should cause recomputation
     processor.process({ ...obj1, d: 4 });
     expect(computeCount).toBe(2);
+  });
+
+  test('memoizedTTL expires cache after specified time', async () => {
+    let computeCount = 0;
+    
+    class TimedProcessor implements WithMemoizedMethods {
+      __memoizedClearFns?: Record<string, () => void>;
+      
+      // Cache for 100ms
+      @memoizedTTL(100)
+      process(value: string): string {
+        computeCount++;
+        return `processed-${value}`;
+      }
+    }
+    
+    const processor = new TimedProcessor();
+    
+    // First call should compute
+    expect(processor.process('test')).toBe('processed-test');
+    expect(computeCount).toBe(1);
+    
+    // Second call with same argument should use cache
+    expect(processor.process('test')).toBe('processed-test');
+    expect(computeCount).toBe(1);
+    
+    // Wait for cache to expire (110ms)
+    await new Promise(resolve => setTimeout(resolve, 110));
+    
+    // Call after expiration should recompute
+    expect(processor.process('test')).toBe('processed-test');
+    expect(computeCount).toBe(2);
+    
+    // Immediate call should use cache again
+    expect(processor.process('test')).toBe('processed-test');
+    expect(computeCount).toBe(2);
+  });
+
+  test('memoizedTTL with different time periods', async () => {
+    let shortCount = 0;
+    let longCount = 0;
+    
+    class MultiTimedProcessor implements WithMemoizedMethods {
+      __memoizedClearFns?: Record<string, () => void>;
+      
+      // Short cache (50ms)
+      @memoizedTTL(50)
+      shortCache(value: string): string {
+        shortCount++;
+        return `short-${value}`;
+      }
+      
+      // Long cache (200ms)
+      @memoizedTTL(200)
+      longCache(value: string): string {
+        longCount++;
+        return `long-${value}`;
+      }
+    }
+    
+    const processor = new MultiTimedProcessor();
+    
+    // Initial calls
+    processor.shortCache('test');
+    processor.longCache('test');
+    expect(shortCount).toBe(1);
+    expect(longCount).toBe(1);
+    
+    // Wait 75ms - short cache should expire, long cache should still be valid
+    await new Promise(resolve => setTimeout(resolve, 75));
+    
+    processor.shortCache('test'); // Should recompute
+    processor.longCache('test');  // Should use cache
+    expect(shortCount).toBe(2);
+    expect(longCount).toBe(1);
+    
+    // Wait 150ms more - both caches should now expire
+    await new Promise(resolve => setTimeout(resolve, 150));
+    
+    processor.shortCache('test'); // Should recompute
+    processor.longCache('test');  // Should recompute
+    expect(shortCount).toBe(3);
+    expect(longCount).toBe(2);
   });
 });

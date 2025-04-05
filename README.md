@@ -1,4 +1,4 @@
-# 🧠 @eurusik/memoized
+# 🧠 @memoized
 
 A lightweight and flexible TypeScript decorator that memoizes method or getter results using deep argument comparison.
 
